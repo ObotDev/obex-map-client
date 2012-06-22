@@ -232,7 +232,7 @@ class BBFileLikeObjectWriter(NSObject):
         
     def write_(self, data):
         try:
-            self.__fileobj.write(data[:])
+            self.__fileobj.write(data)
         except Exception:
             return -1
         return data.length()
