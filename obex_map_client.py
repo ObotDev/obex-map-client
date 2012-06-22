@@ -1,43 +1,52 @@
-'''
-This example shows how to use the lightblue.obex.OBEXClient class to implement a
-basic client for the File Transfer Profile, which is a profile implemented on
-top of OBEX. This profile allows clients to:
-    - send files
-    - retrieve files
-    - create and remove directories
-    - change the current working directory
-
-You can find a copy of the profile specification at
-<http://www.bluetooth.com/Bluetooth/Technology/Building/Specifications/>.
-'''
+# 05/22/12: adpated from lightblue's obex_ftp_client.py by Ojas Parekh.
 
 import sys
 import os
+import uuid
+import StringIO
 import lightblue
 
 
-# This is the special Target UUID (F9EC7BC4-953C-11D2-984E-525400DC9E09) for the
-# File Transfer Profile, in byte form. You can get this in Python 2.5 using the
-# uuid module:
-#   >>> print uuid.UUID('{F9EC7BC4-953C-11D2-984E-525400DC9E09}').bytes
-FTP_TARGET_UUID = '\xf9\xec{\xc4\x95<\x11\xd2\x98NRT\x00\xdc\x9e\t'
+# Target UUID for the Message Access Profile
+MAS_TARGET_UUID = uuid.UUID('{bb582b40-420c-11db-b0de-0800200c9a66}').bytes
 
+# Message Access Profile application parameters
+FILTER_READ_STATUS_TAG    = '\x06\x01'
+FILTER_READ_STATUS_BOTH   = FILTER_READ_STATUS_TAG + '\x00'
+FILTER_READ_STATUS_UNREAD = FILTER_READ_STATUS_TAG + '\x01'
+FILTER_READ_STATUS_READ   = FILTER_READ_STATUS_TAG + '\x02'
+
+ATTACHMENT_TAG = '\x0A\x01'
+ATTACHMENT_OFF = ATTACHMENT_TAG + '\x00'
+ATTACHMENT_ON  = ATTACHMENT_TAG + '\x01'
+
+CHARSET_TAG    = '\x14\x01'
+CHARSET_NATIVE = CHARSET_TAG + '\x00'
+CHARSET_UTF8   = CHARSET_TAG + '\x01'
+
+STATUS_INDICATOR_TAG     = '\x17\x01'
+STATUS_INDICATOR_READ    = STATUS_INDICATOR_TAG + '\x00';
+STATUS_INDICATOR_DELETED = STATUS_INDICATOR_TAG + '\x01';
+
+STATUS_VALUE_TAG = '\x18\x01'
+STATUS_VALUE_NO  = STATUS_VALUE_TAG + '\x00';
+STATUS_VALUE_YES = STATUS_VALUE_TAG + '\x01';
 
 # A note about Connection ID headers:
-# Notice that the FTPClient does not send the Connection ID in any of the 
-# request headers, even though this is required by the File Transfer Profile 
+# Notice that the MAPClient does not send the Connection ID in any of the 
+# request headers, even though this is required by the Message Access Profile 
 # specs. This is because the OBEXClient class automatically sends the Connection 
 # ID with each request if it received one from the server in the initial Connect
 # response headers, so you do not have to add it yourself.
 
 
-class FTPClient(object):
+class MAPClient(object):
 
     def __init__(self, address, port):
         self.client = lightblue.obex.OBEXClient(address, port)
 
     def connect(self):
-        response = self.client.connect({'target': FTP_TARGET_UUID})
+        response = self.client.connect({'target': MAS_TARGET_UUID})
         if response.code != lightblue.obex.OK:
             raise Exception('OBEX server refused Connect request (server \
                 response was "%s")' % response.reason)
@@ -48,9 +57,8 @@ class FTPClient(object):
         print 'Server response:', response.reason
 
     def ls(self):
-        import StringIO
         dirlist = StringIO.StringIO()
-        response = self.client.get({'type': 'x-obex/folder-listing'}, dirlist)
+        response = self.client.get({'type': 'x-obex/folder-listing\x00'}, dirlist)
         print 'Server response:', response.reason
         if response.code == lightblue.obex.OK:
             files = self._parsefolderlisting(dirlist.getvalue())
@@ -108,6 +116,55 @@ class FTPClient(object):
         if response.code == lightblue.obex.PRECONDITION_FAILED:
             print 'Directory contents must be deleted first'
 
+    # OP: MAP-specific commands
+    def lsmsg(self, type='unread'):
+        # additional application parameters go below
+        parameters = ''
+        if type == 'unread':
+            parameters += FILTER_READ_STATUS_UNREAD
+        elif type == 'read':
+            parameters += FILTER_READ_STATUS_READ
+        else:
+            parameters += FILTER_READ_STATUS_BOTH
+
+        msglist = StringIO.StringIO()
+        response = self.client.get({'type': 'x-bt/MAP-msg-listing\x00', 
+                                    'name': '',
+                                    'application-parameters': parameters},
+                                   msglist)
+        print 'Server response:', response.reason
+        if response.code == lightblue.obex.OK:
+            print 'Messages XML:'
+            print msglist.getvalue()
+
+    def getmsg(self, handle):
+        if handle == '':
+            print 'Must specify a valid message handle'
+            return
+
+        msg = StringIO.StringIO()
+        response = self.client.get({'type': 'x-bt/message\x00',
+                                    'name': handle,
+                                    'application-parameters': ATTACHMENT_OFF + CHARSET_UTF8},
+                                   msg)
+        print 'Server response:', response.reason
+        if response.code == lightblue.obex.OK:
+            print 'Message', handle + ':'
+            print msg.getvalue()
+
+    def setmsgread(self, handle):
+        if handle == '':
+            print 'Must specify a valid message handle'
+            return
+        
+        fillerbody = StringIO.StringIO('0')
+        response = self.client.put({'type': 'x-bt/messageStatus\x00',
+                                    'name': handle,
+                                    'application-parameters': STATUS_INDICATOR_READ + STATUS_VALUE_YES}, 
+                                   fillerbody)
+        fillerbody.close()
+        print 'Server response:', response.reason
+
     def _parsefolderlisting(self, xmldata):
         """
         Returns a list of basic details for the files and folders contained in
@@ -140,7 +197,7 @@ class FTPClient(object):
         return entries
 
 
-def processcommands(ftpclient):
+def processcommands(client):
     while True:
         input = raw_input('\nEnter command: ')
         cmd = input.split(" ")[0].lower()
@@ -150,7 +207,7 @@ def processcommands(ftpclient):
             break
 
         try:
-            method = getattr(ftpclient, cmd)
+            method = getattr(client, cmd)
         except AttributeError:
             print 'Unknown command "%s".' % cmd
             print main.__doc__
@@ -167,7 +224,7 @@ def processcommands(ftpclient):
 
 def main():
     """
-    Usage: python obex_ftp_client.py [address channel]
+    Usage: python obex_map_client.py [address channel]
 
     If the address and channel are not provided, the user will be prompted to
     choose a service.
@@ -180,6 +237,9 @@ def main():
         rm <file>
         mkdir <directory>
         rmdir <directory>
+        lsmsg [unread/read/both]
+        getmsg <handle>
+        setmsgread <handle>
         exit
         
     Some servers accept "/" path separators within the <file> or <filename> 
@@ -195,15 +255,15 @@ def main():
         address, channel, servicename = lightblue.selectservice()
     print 'Connecting to %s on channel %d...' % (address, channel)
 
-    ftpclient = FTPClient(address, channel)
-    ftpclient.connect()
+    mapclient = MAPClient(address, channel)
+    mapclient.connect()
     print 'Connected.'
 
     try:
-        processcommands(ftpclient)
+        processcommands(mapclient)
     finally:
         try:
-            ftpclient.disconnect()
+            mapclient.disconnect()
         except Exception, e:
             print "Error while disconnecting:", e
             pass
