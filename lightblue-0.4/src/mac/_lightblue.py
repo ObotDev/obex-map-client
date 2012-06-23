@@ -278,9 +278,6 @@ def selectservice():
         if len(results) > 0:  # should always be > 0, but check anyway    
             serviceinfo = _getservicetuple(results[0])
             
-            print serviceinfo
-            print _macutil.createbtdevaddr(serviceinfo[0])
-            
             # sometimes the baseband connection stays open which causes 
             # problems with connections ... so close it here, see if this fixes 
             # it        
