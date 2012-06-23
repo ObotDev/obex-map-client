@@ -3,9 +3,6 @@ obex_ftp_client.py program which allows interactively communicating
 with a MAP device.  I have fixed several bugs within the lightblue
 OS X source code, so you will have to build that as well.
 
--Ojas Parekh
-
-
 1. Install the lightblue python module as well as the Mac OS
    X-specific LightAquaBlue framework:
 
@@ -19,8 +16,7 @@ OS X source code, so you will have to build that as well.
      python obex_map_client.py
 
 
-3. You will be prompted to select a bluetooth device and service.  For
-   an iOS 6 device, select the "MAP MAS-iPhone" service.
+3. You will be prompted to select a bluetooth device and service.
 
 
 4. Note the bluetooth address and channel of the device which may be
@@ -34,6 +30,6 @@ OS X source code, so you will have to build that as well.
      cd msg
      cd inbox
 
-   to get the inbox, where new messages (notifications on iOS 6) arrive.
+   to get the inbox, where new messages arrive.
 
    Note: 'ls' displays folders while 'lsmsg' displays messages.
