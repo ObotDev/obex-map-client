@@ -134,8 +134,8 @@ class MAPClient(object):
                                    msglist)
         print 'Server response:', response.reason
         if response.code == lightblue.obex.OK:
-            print 'Messages XML:'
-            print msglist.getvalue()
+            print 'Messages:'
+            self._parsemessagelisting(msglist.getvalue())
 
     def getmsg(self, handle):
         if handle == '':
@@ -165,6 +165,7 @@ class MAPClient(object):
         fillerbody.close()
         print 'Server response:', response.reason
 
+    # XML parsing
     def _parsefolderlisting(self, xmldata):
         """
         Returns a list of basic details for the files and folders contained in
@@ -195,6 +196,19 @@ class MAPClient(object):
             entries.append('%s\t%s' % (f.getAttribute('name'),
                                        f.getAttribute('size')))
         return entries
+
+    def _parsemessagelisting(self, xmldata):
+        if len(xmldata) == 0:
+            print "Error parsing folder-listing XML: no xml data"
+        
+        import xml.etree.ElementTree as ET
+        root = ET.XML(xmldata)
+        for element in root.getiterator('msg'):
+            if 'handle' in element.attrib:
+                print '[message header #' + element.attrib['handle'] + ']'
+                for key, value in element.attrib.iteritems():
+                    print '\t' + key + ': ' + value
+                print
 
 
 def processcommands(client):
@@ -251,7 +265,6 @@ def main():
         channel = int(sys.argv[2])
     else:
         # ask user to choose a service
-        # a FTP service is usually called 'FTP', 'OBEX File Transfer', etc.
         address, channel, servicename = lightblue.selectservice()
     print 'Connecting to %s on channel %d...' % (address, channel)
 
