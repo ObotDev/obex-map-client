@@ -117,7 +117,7 @@ class MAPClient(object):
             print 'Directory contents must be deleted first'
 
     # OP: MAP-specific commands
-    def lsmsg(self, type='unread'):
+    def lsmsg(self, type):
         # additional application parameters go below
         parameters = ''
         if type == 'unread':
