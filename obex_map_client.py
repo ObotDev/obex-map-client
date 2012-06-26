@@ -197,6 +197,7 @@ class MAPClient(object):
                                        f.getAttribute('size')))
         return entries
 
+    # OP: use ElementTree to parse message listings
     def _parsemessagelisting(self, xmldata):
         if len(xmldata) == 0:
             print "Error parsing folder-listing XML: no xml data"
