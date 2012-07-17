@@ -22,9 +22,7 @@
 //  LightAquaBlue
 //
 
-#import <IOBluetooth/Bluetooth.h>
-#import <IOBluetooth/IOBluetoothUserLib.h>
-#import <IOBluetooth/IOBluetoothUtilities.h>
+#import <IOBluetooth/IOBluetooth.h>
 
 #import "BBLocalDevice.h"
 
@@ -33,56 +31,24 @@
 
 + (NSString *)getName
 {
-	BluetoothDeviceName name;
-    IOReturn result;
-	
-	result = IOBluetoothLocalDeviceReadName(name, NULL, NULL, NULL);
-    if (result == kIOReturnSuccess) {
-		NSString *s = [NSString stringWithCString:(char *)name];
-		if (s != nil) 
-			return s;
-    }        
-	
-    return nil;
+    return [[IOBluetoothHostController defaultController] nameAsString];
 }
 
 + (NSString *)getAddressString
 {
-	BluetoothDeviceAddress address;
-    IOReturn result;
-	
-	result = IOBluetoothLocalDeviceReadAddress(&address, NULL, NULL, NULL);
-    if (result == kIOReturnSuccess) {
-		return IOBluetoothNSStringFromDeviceAddress(&address);
-    }        
-	
-    return nil;
+    return [[IOBluetoothHostController defaultController] addressAsString];
 }
 
 + (BluetoothClassOfDevice)getClassOfDevice
 {
-	BluetoothClassOfDevice classOfDevice;
-    IOReturn result;
-	
-	result = IOBluetoothLocalDeviceReadClassOfDevice(&classOfDevice, NULL, NULL, NULL);
-    if (result == kIOReturnSuccess) {
-		return classOfDevice;
-    }        
-	
-    return -1;
+    return [[IOBluetoothHostController defaultController] classOfDevice];
 }
 
 + (BOOL)isPoweredOn
 {
-	if (!IOBluetoothLocalDeviceAvailable()) 
-		return NO;
-	
-	BluetoothHCIPowerState powerState;
-	IOReturn status = IOBluetoothLocalDeviceGetPowerState(&powerState);
-	if (status != kIOReturnSuccess || powerState != kBluetoothHCIPowerStateON) 
-		return NO;
-	
-	return YES;
+	BluetoothHCIPowerState powerState = [IOBluetoothHostController defaultController].powerState;
+
+	return powerState == kBluetoothHCIPowerStateON;
 }
 
 @end
